@@ -11,7 +11,7 @@
 //
 // Main UI for video streaming from Meta wearable devices using the DAT SDK.
 // This view demonstrates the complete streaming API: video streaming with real-time display, photo capture,
-// and error handling. Extended with Gemini Live AI assistant integration.
+// and error handling. Extended with AI assistant integration (Gemini or OpenAI).
 //
 
 import MWDATCore
@@ -20,7 +20,7 @@ import SwiftUI
 struct StreamView: View {
   @ObservedObject var viewModel: StreamSessionViewModel
   @ObservedObject var wearablesVM: WearablesViewModel
-  @ObservedObject var geminiVM: GeminiSessionViewModel
+  @ObservedObject var sessionVM: RealtimeSessionViewModel
 
   var body: some View {
     ZStack {
@@ -44,23 +44,23 @@ struct StreamView: View {
           .foregroundColor(.white)
       }
 
-      // Gemini status overlay (top) + speaking indicator
-      if geminiVM.isGeminiActive {
+      // AI status overlay (top) + speaking indicator
+      if sessionVM.isActive {
         VStack {
-          GeminiStatusBar(geminiVM: geminiVM)
+          AIStatusBar(sessionVM: sessionVM)
           Spacer()
 
           VStack(spacing: 8) {
-            if !geminiVM.userTranscript.isEmpty || !geminiVM.aiTranscript.isEmpty {
+            if !sessionVM.userTranscript.isEmpty || !sessionVM.aiTranscript.isEmpty {
               TranscriptView(
-                userText: geminiVM.userTranscript,
-                aiText: geminiVM.aiTranscript
+                userText: sessionVM.userTranscript,
+                aiText: sessionVM.aiTranscript
               )
             }
 
-            ToolCallStatusView(status: geminiVM.toolCallStatus)
+            ToolCallStatusView(status: sessionVM.toolCallStatus)
 
-            if geminiVM.isModelSpeaking {
+            if sessionVM.isModelSpeaking {
               HStack(spacing: 8) {
                 Image(systemName: "speaker.wave.2.fill")
                   .foregroundColor(.white)
@@ -81,7 +81,7 @@ struct StreamView: View {
       // Bottom controls layer
       VStack {
         Spacer()
-        ControlsView(viewModel: viewModel, geminiVM: geminiVM)
+        ControlsView(viewModel: viewModel, sessionVM: sessionVM)
       }
       .padding(.all, 24)
     }
@@ -90,8 +90,8 @@ struct StreamView: View {
         if viewModel.streamingStatus != .stopped {
           await viewModel.stopSession()
         }
-        if geminiVM.isGeminiActive {
-          geminiVM.stopSession()
+        if sessionVM.isActive {
+          sessionVM.stopSession()
         }
       }
     }
@@ -106,14 +106,14 @@ struct StreamView: View {
         )
       }
     }
-    // Gemini error alert
+    // AI error alert
     .alert("AI Assistant", isPresented: Binding(
-      get: { geminiVM.errorMessage != nil },
-      set: { if !$0 { geminiVM.errorMessage = nil } }
+      get: { sessionVM.errorMessage != nil },
+      set: { if !$0 { sessionVM.errorMessage = nil } }
     )) {
-      Button("OK") { geminiVM.errorMessage = nil }
+      Button("OK") { sessionVM.errorMessage = nil }
     } message: {
-      Text(geminiVM.errorMessage ?? "")
+      Text(sessionVM.errorMessage ?? "")
     }
   }
 }
@@ -121,7 +121,7 @@ struct StreamView: View {
 // Extracted controls for clarity
 struct ControlsView: View {
   @ObservedObject var viewModel: StreamSessionViewModel
-  @ObservedObject var geminiVM: GeminiSessionViewModel
+  @ObservedObject var sessionVM: RealtimeSessionViewModel
 
   var body: some View {
     // Controls row
@@ -143,16 +143,16 @@ struct ControlsView: View {
         }
       }
 
-      // Gemini AI button
+      // AI button
       CircleButton(
-        icon: geminiVM.isGeminiActive ? "waveform.circle.fill" : "waveform.circle",
+        icon: sessionVM.isActive ? "waveform.circle.fill" : "waveform.circle",
         text: "AI"
       ) {
         Task {
-          if geminiVM.isGeminiActive {
-            geminiVM.stopSession()
+          if sessionVM.isActive {
+            sessionVM.stopSession()
           } else {
-            await geminiVM.startSession()
+            await sessionVM.startSession()
           }
         }
       }

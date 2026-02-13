@@ -48,7 +48,7 @@ class StreamSessionViewModel: ObservableObject {
   @Published var showPhotoPreview: Bool = false
 
   // Gemini Live integration
-  var geminiSessionVM: GeminiSessionViewModel?
+  var realtimeSessionVM: RealtimeSessionViewModel?
 
   // The core DAT SDK StreamSession - handles all streaming operations
   private var streamSession: StreamSession
@@ -99,7 +99,7 @@ class StreamSessionViewModel: ObservableObject {
             self.hasReceivedFirstFrame = true
           }
           // Forward video frames to Gemini Live (throttled internally to ~1fps)
-          self.geminiSessionVM?.sendVideoFrameIfThrottled(image: image)
+          self.realtimeSessionVM?.sendVideoFrameIfThrottled(image: image)
         }
       }
     }
@@ -188,7 +188,7 @@ class StreamSessionViewModel: ObservableObject {
         if !self.hasReceivedFirstFrame {
           self.hasReceivedFirstFrame = true
         }
-        self.geminiSessionVM?.sendVideoFrameIfThrottled(image: image)
+        self.realtimeSessionVM?.sendVideoFrameIfThrottled(image: image)
       }
     }
     camera.start()

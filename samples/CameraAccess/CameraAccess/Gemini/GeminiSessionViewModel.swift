@@ -180,7 +180,7 @@ class GeminiSessionViewModel: ObservableObject {
   func sendVideoFrameIfThrottled(image: UIImage) {
     guard isGeminiActive, connectionState == .ready else { return }
     let now = Date()
-    guard now.timeIntervalSince(lastVideoFrameTime) >= GeminiConfig.videoFrameInterval else { return }
+    guard now.timeIntervalSince(lastVideoFrameTime) >= AppConfig.videoFrameInterval else { return }
     lastVideoFrameTime = now
     geminiService.sendVideoFrame(image: image)
   }

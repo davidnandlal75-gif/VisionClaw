@@ -8,18 +8,27 @@ class AudioManager {
   private let playerNode = AVAudioPlayerNode()
   private var isCapturing = false
 
+  private let inputSampleRate: Double
+  private let outputSampleRate: Double
+  private let audioChannels: UInt32 = 1
+  private let audioBitsPerSample: UInt32 = 16
+
   private let outputFormat: AVAudioFormat
 
   // Accumulate resampled PCM into ~100ms chunks before sending
   private let sendQueue = DispatchQueue(label: "audio.accumulator")
   private var accumulatedData = Data()
-  private let minSendBytes = 3200  // 100ms at 16kHz mono Int16 = 1600 frames * 2 bytes
+  private let minSendBytes: Int  // 100ms at inputSampleRate mono Int16
 
-  init() {
+  init(inputSampleRate: Double = GeminiConfig.inputAudioSampleRate,
+       outputSampleRate: Double = GeminiConfig.outputAudioSampleRate) {
+    self.inputSampleRate = inputSampleRate
+    self.outputSampleRate = outputSampleRate
+    self.minSendBytes = Int(inputSampleRate * 0.1) * 2  // 100ms * 2 bytes per sample
     self.outputFormat = AVAudioFormat(
       commonFormat: .pcmFormatInt16,
-      sampleRate: GeminiConfig.outputAudioSampleRate,
-      channels: GeminiConfig.audioChannels,
+      sampleRate: outputSampleRate,
+      channels: audioChannels,
       interleaved: true
     )!
   }
@@ -34,10 +43,12 @@ class AudioManager {
       mode: mode,
       options: [.defaultToSpeaker, .allowBluetooth]
     )
-    try session.setPreferredSampleRate(GeminiConfig.inputAudioSampleRate)
+    try session.setPreferredSampleRate(inputSampleRate)
     try session.setPreferredIOBufferDuration(0.064)
     try session.setActive(true)
-    NSLog("[Audio] Session mode: %@", useIPhoneMode ? "voiceChat (iPhone)" : "videoChat (glasses)")
+    NSLog("[Audio] Session mode: %@, input rate: %.0f, output rate: %.0f",
+          useIPhoneMode ? "voiceChat (iPhone)" : "videoChat (glasses)",
+          inputSampleRate, outputSampleRate)
   }
 
   func startCapture() throws {
@@ -46,8 +57,8 @@ class AudioManager {
     audioEngine.attach(playerNode)
     let playerFormat = AVAudioFormat(
       commonFormat: .pcmFormatFloat32,
-      sampleRate: GeminiConfig.outputAudioSampleRate,
-      channels: GeminiConfig.audioChannels,
+      sampleRate: outputSampleRate,
+      channels: audioChannels,
       interleaved: false
     )!
     audioEngine.connect(playerNode, to: audioEngine.mainMixerNode, format: playerFormat)
@@ -62,8 +73,8 @@ class AudioManager {
 
     // Always tap in native format (Float32) and convert to Int16 PCM manually.
     // AVAudioEngine taps don't reliably convert between sample formats inline.
-    let needsResample = inputNativeFormat.sampleRate != GeminiConfig.inputAudioSampleRate
-        || inputNativeFormat.channelCount != GeminiConfig.audioChannels
+    let needsResample = inputNativeFormat.sampleRate != inputSampleRate
+        || inputNativeFormat.channelCount != audioChannels
 
     NSLog("[Audio] Needs resample: %@", needsResample ? "YES" : "NO")
 
@@ -73,12 +84,15 @@ class AudioManager {
     if needsResample {
       let resampleFormat = AVAudioFormat(
         commonFormat: .pcmFormatFloat32,
-        sampleRate: GeminiConfig.inputAudioSampleRate,
-        channels: GeminiConfig.audioChannels,
+        sampleRate: inputSampleRate,
+        channels: audioChannels,
         interleaved: false
       )!
       converter = AVAudioConverter(from: inputNativeFormat, to: resampleFormat)
     }
+
+    let capturedInputRate = inputSampleRate
+    let capturedMinSendBytes = minSendBytes
 
     var tapCount = 0
     inputNode.installTap(onBus: 0, bufferSize: 4096, format: inputNativeFormat) { [weak self] buffer, _ in
@@ -86,13 +100,12 @@ class AudioManager {
 
       tapCount += 1
       let pcmData: Data
-      let rms: Float
 
       if let converter {
         let resampleFormat = AVAudioFormat(
           commonFormat: .pcmFormatFloat32,
-          sampleRate: GeminiConfig.inputAudioSampleRate,
-          channels: GeminiConfig.audioChannels,
+          sampleRate: capturedInputRate,
+          channels: self.audioChannels,
           interleaved: false
         )!
         guard let resampled = self.convertBuffer(buffer, using: converter, targetFormat: resampleFormat) else {
@@ -100,27 +113,20 @@ class AudioManager {
           return
         }
         pcmData = self.float32BufferToInt16Data(resampled)
-        rms = self.computeRMS(resampled)
       } else {
         pcmData = self.float32BufferToInt16Data(buffer)
-        rms = self.computeRMS(buffer)
       }
 
-      // Log first 3 taps, then every ~2 seconds (every 8th tap at 4096 frames/16kHz = ~256ms each)
-      // if tapCount <= 3 || tapCount % 8 == 0 {
-      //   NSLog("[Audio] Tap #%d: %d frames, %d bytes, rms=%.4f",
-      //         tapCount, buffer.frameLength, pcmData.count, rms)
-      // }
-
-      // Accumulate into ~100ms chunks before sending to Gemini
+      // Accumulate into ~100ms chunks before sending
       self.sendQueue.async {
         self.accumulatedData.append(pcmData)
-        if self.accumulatedData.count >= self.minSendBytes {
+        if self.accumulatedData.count >= capturedMinSendBytes {
           let chunk = self.accumulatedData
           self.accumulatedData = Data()
           if tapCount <= 3 {
+            let bytesPerMs = Int(capturedInputRate) * 2 / 1000
             NSLog("[Audio] Sending chunk: %d bytes (~%dms)",
-                  chunk.count, chunk.count / 32)  // 16kHz * 2 bytes = 32 bytes/ms
+                  chunk.count, bytesPerMs > 0 ? chunk.count / bytesPerMs : 0)
           }
           self.onAudioCaptured?(chunk)
         }
@@ -137,12 +143,12 @@ class AudioManager {
 
     let playerFormat = AVAudioFormat(
       commonFormat: .pcmFormatFloat32,
-      sampleRate: GeminiConfig.outputAudioSampleRate,
-      channels: GeminiConfig.audioChannels,
+      sampleRate: outputSampleRate,
+      channels: audioChannels,
       interleaved: false
     )!
 
-    let frameCount = UInt32(data.count) / (GeminiConfig.audioBitsPerSample / 8 * GeminiConfig.audioChannels)
+    let frameCount = UInt32(data.count) / (audioBitsPerSample / 8 * audioChannels)
     guard frameCount > 0 else { return }
 
     guard let buffer = AVAudioPCMBuffer(pcmFormat: playerFormat, frameCapacity: frameCount) else { return }

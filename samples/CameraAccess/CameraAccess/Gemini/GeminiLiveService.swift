@@ -134,7 +134,7 @@ class GeminiLiveService: ObservableObject {
   func sendVideoFrame(image: UIImage) {
     guard connectionState == .ready else { return }
     sendQueue.async { [weak self] in
-      guard let jpegData = image.jpegData(compressionQuality: GeminiConfig.videoJPEGQuality) else { return }
+      guard let jpegData = image.jpegData(compressionQuality: AppConfig.videoJPEGQuality) else { return }
       let base64 = jpegData.base64EncodedString()
       let json: [String: Any] = [
         "realtimeInput": [

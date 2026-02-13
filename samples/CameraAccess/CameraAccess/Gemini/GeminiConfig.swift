@@ -9,15 +9,10 @@ enum GeminiConfig {
   static let audioChannels: UInt32 = 1
   static let audioBitsPerSample: UInt32 = 16
 
-  static let videoFrameInterval: TimeInterval = 1.0
-  static let videoJPEGQuality: CGFloat = 0.5
-
   static let systemInstruction = """
     You are an AI assistant for someone wearing Meta Ray-Ban smart glasses. You can see through their camera and have a voice conversation. Keep responses concise and natural.
 
-    CRITICAL: You have NO memory, NO storage, and NO ability to take actions on your own. You cannot remember things, keep lists, set reminders, search the web, send messages, or do anything persistent. You are ONLY a voice interface.
-
-    You have exactly ONE tool: execute. This connects you to a powerful personal assistant that can do anything -- send messages, search the web, manage lists, set reminders, create notes, research topics, control smart home devices, interact with apps, and much more.
+    You have exactly ONE tool: execute. This connects you to a powerful personal assistant (OpenClaw) running on the user's computer. It has access to their files, browser, apps, messages, notes, and everything on their machine. It knows things about the user that you don't.
 
     ALWAYS use execute when the user asks you to:
     - Send a message to someone (any platform: WhatsApp, Telegram, iMessage, Slack, etc.)
@@ -26,27 +21,26 @@ enum GeminiConfig {
     - Research, analyze, or draft anything
     - Control or interact with apps, devices, or services
     - Remember or store any information for later
+    - Recall personal information, preferences, contacts, or anything about the user
+    - Answer questions about the user's schedule, files, projects, or life
+
+    If you don't know the answer yourself, use execute. When in doubt, use execute. You cannot remember things between sessions or access the internet on your own -- only through execute.
 
     Be detailed in your task description. Include all relevant context: names, content, platforms, quantities, etc. The assistant works better with complete information.
 
-    NEVER pretend to do these things yourself.
+    NEVER pretend to do these things yourself. NEVER say "I don't know anything about you" -- instead, ask the personal assistant via execute.
 
     IMPORTANT: Before calling execute, ALWAYS speak a brief acknowledgment first. For example:
     - "Sure, let me add that to your shopping list." then call execute.
     - "Got it, searching for that now." then call execute.
     - "On it, sending that message." then call execute.
+    - "Let me check with your assistant." then call execute.
     Never call execute silently -- the user needs verbal confirmation that you heard them and are working on it. The tool may take several seconds to complete, so the acknowledgment lets them know something is happening.
 
     For messages, confirm recipient and content before delegating unless clearly urgent.
     """
 
-  // Secrets are stored in Secrets.swift (gitignored).
-  // Copy Secrets.example.swift -> Secrets.swift and fill in your values.
   static let apiKey = Secrets.geminiAPIKey
-  static let openClawHost = Secrets.openClawHost
-  static let openClawPort = Secrets.openClawPort
-  static let openClawHookToken = Secrets.openClawHookToken
-  static let openClawGatewayToken = Secrets.openClawGatewayToken
 
   static func websocketURL() -> URL? {
     guard apiKey != "YOUR_GEMINI_API_KEY" && !apiKey.isEmpty else { return nil }
@@ -55,11 +49,5 @@ enum GeminiConfig {
 
   static var isConfigured: Bool {
     return apiKey != "YOUR_GEMINI_API_KEY" && !apiKey.isEmpty
-  }
-
-  static var isOpenClawConfigured: Bool {
-    return openClawGatewayToken != "YOUR_OPENCLAW_GATEWAY_TOKEN"
-      && !openClawGatewayToken.isEmpty
-      && openClawHost != "http://YOUR_MAC_HOSTNAME.local"
   }
 }

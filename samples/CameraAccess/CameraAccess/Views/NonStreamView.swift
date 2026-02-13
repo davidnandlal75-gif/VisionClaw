@@ -19,6 +19,7 @@ import SwiftUI
 struct NonStreamView: View {
   @ObservedObject var viewModel: StreamSessionViewModel
   @ObservedObject var wearablesVM: WearablesViewModel
+  @ObservedObject var sessionVM: RealtimeSessionViewModel
   @State private var sheetHeight: CGFloat = 300
 
   var body: some View {
@@ -64,6 +65,17 @@ struct NonStreamView: View {
         .padding(.horizontal, 12)
 
         Spacer()
+
+        // AI Provider picker
+        VStack(spacing: 12) {
+          Text("AI Provider")
+            .font(.system(size: 13, weight: .medium))
+            .foregroundColor(.white.opacity(0.7))
+
+          ProviderPickerView(selectedProvider: $sessionVM.provider)
+        }
+        .padding(.horizontal, 24)
+        .padding(.bottom, 16)
 
         HStack(spacing: 8) {
           Image(systemName: "hourglass")

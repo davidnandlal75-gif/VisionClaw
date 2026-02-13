@@ -1,20 +1,24 @@
 import SwiftUI
 
-struct GeminiStatusBar: View {
-  @ObservedObject var geminiVM: GeminiSessionViewModel
+struct AIStatusBar: View {
+  @ObservedObject var sessionVM: RealtimeSessionViewModel
 
   var body: some View {
     HStack(spacing: 8) {
-      // Gemini connection pill
-      StatusPill(color: geminiStatusColor, text: geminiStatusText)
+      // AI provider connection pill
+      StatusPill(color: aiStatusColor, text: aiStatusText)
 
       // OpenClaw connection pill
       StatusPill(color: openClawStatusColor, text: openClawStatusText)
     }
   }
 
-  private var geminiStatusColor: Color {
-    switch geminiVM.connectionState {
+  private var providerName: String {
+    sessionVM.providerDisplayName
+  }
+
+  private var aiStatusColor: Color {
+    switch sessionVM.connectionState {
     case .ready: return .green
     case .connecting, .settingUp: return .yellow
     case .error: return .red
@@ -22,17 +26,17 @@ struct GeminiStatusBar: View {
     }
   }
 
-  private var geminiStatusText: String {
-    switch geminiVM.connectionState {
-    case .ready: return "Gemini"
-    case .connecting, .settingUp: return "Gemini..."
-    case .error: return "Gemini Error"
-    case .disconnected: return "Gemini Off"
+  private var aiStatusText: String {
+    switch sessionVM.connectionState {
+    case .ready: return providerName
+    case .connecting, .settingUp: return "\(providerName)..."
+    case .error: return "\(providerName) Error"
+    case .disconnected: return "\(providerName) Off"
     }
   }
 
   private var openClawStatusColor: Color {
-    switch geminiVM.openClawConnectionState {
+    switch sessionVM.openClawConnectionState {
     case .connected: return .green
     case .checking: return .yellow
     case .unreachable: return .red
@@ -41,7 +45,7 @@ struct GeminiStatusBar: View {
   }
 
   private var openClawStatusText: String {
-    switch geminiVM.openClawConnectionState {
+    switch sessionVM.openClawConnectionState {
     case .connected: return "OpenClaw"
     case .checking: return "OpenClaw..."
     case .unreachable: return "OpenClaw Off"
@@ -49,6 +53,9 @@ struct GeminiStatusBar: View {
     }
   }
 }
+
+// Keep old name as typealias for any remaining references
+typealias GeminiStatusBar = AIStatusBar
 
 struct StatusPill: View {
   let color: Color
