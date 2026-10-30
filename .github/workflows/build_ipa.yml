@@ -11,31 +11,32 @@ jobs:
     - name: Checkout Repository
       uses: actions/checkout@v4
 
-    - name: Clear Code Signing Settings
+    - name: Force Disable Signing Requirements
       run: |
         cd samples/CameraAccess
-        sed -i '' 's/DEVELOPMENT_TEAM = .*/DEVELOPMENT_TEAM = "";/' CameraAccess.xcodeproj/project.pbxproj
-        sed -i '' 's/CODE_SIGN_IDENTITY = .*/CODE_SIGN_IDENTITY = "";/' CameraAccess.xcodeproj/project.pbxproj
+        sed -i '' 's/CODE_SIGNING_REQUIRED = YES/CODE_SIGNING_REQUIRED = NO/g' CameraAccess.xcodeproj/project.pbxproj
+        sed -i '' 's/CODE_SIGNING_ALLOWED = YES/CODE_SIGNING_ALLOWED = NO/g' CameraAccess.xcodeproj/project.pbxproj
+        sed -i '' 's/DEVELOPMENT_TEAM = .*/DEVELOPMENT_TEAM = "";/g' CameraAccess.xcodeproj/project.pbxproj
 
-    - name: Build Project for Generic Device
+    - name: Archive and Export App Bundle
       run: |
         cd samples/CameraAccess
-        xcodebuild clean build \
+        xcodebuild archive \
           -project CameraAccess.xcodeproj \
           -scheme CameraAccess \
+          -archivePath ./build/VisionClaw.xcarchive \
           -sdk iphoneos \
-          -configuration Release \
           CODE_SIGNING_ALLOWED=NO \
           CODE_SIGNING_REQUIRED=NO \
           CODE_SIGN_IDENTITY="" \
-          PROVISIONING_PROFILE_SPECIFIER="" \
-          CONFIGURATION_BUILD_DIR=build
+          PROVISIONING_PROFILE_SPECIFIER=""
 
-    - name: Package into IPA Archive
+    - name: Package App Bundle into IPA
       run: |
-        cd samples/CameraAccess/build
-        mkdir Payload
-        cp -r CameraAccess.app Payload/
+        cd samples/CameraAccess
+        mkdir -p build/Payload
+        cp -r build/VisionClaw.xcarchive/Products/Applications/CameraAccess.app build/Payload/
+        cd build
         zip -r VisionClaw.ipa Payload
 
     - name: Upload Finished IPA
