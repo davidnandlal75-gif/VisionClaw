@@ -11,32 +11,38 @@ jobs:
     - name: Checkout Repository
       uses: actions/checkout@v4
 
-    - name: Force Disable Signing Requirements
+    - name: Strip Code Signing & Entitlements
       run: |
         cd samples/CameraAccess
-        sed -i '' 's/CODE_SIGNING_REQUIRED = YES/CODE_SIGNING_REQUIRED = NO/g' CameraAccess.xcodeproj/project.pbxproj
-        sed -i '' 's/CODE_SIGNING_ALLOWED = YES/CODE_SIGNING_ALLOWED = NO/g' CameraAccess.xcodeproj/project.pbxproj
+        # Remove entitlements file reference from project
+        sed -i '' 's/CODE_SIGN_ENTITLEMENTS = .*/CODE_SIGN_ENTITLEMENTS = "";/g' CameraAccess.xcodeproj/project.pbxproj
+        # Completely clear development team and identities
         sed -i '' 's/DEVELOPMENT_TEAM = .*/DEVELOPMENT_TEAM = "";/g' CameraAccess.xcodeproj/project.pbxproj
+        sed -i '' 's/CODE_SIGN_IDENTITY = .*/CODE_SIGN_IDENTITY = "";/g' CameraAccess.xcodeproj/project.pbxproj
+        sed -i '' 's/CODE_SIGN_IDENTITY\[sdk=iphoneos\*\] = .*/CODE_SIGN_IDENTITY\[sdk=iphoneos\*\] = "";/g' CameraAccess.xcodeproj/project.pbxproj
+        # Force manual signing style with empty profile
+        sed -i '' 's/SigningStyle = Automatic;/SigningStyle = Manual;/g' CameraAccess.xcodeproj/project.pbxproj
+        sed -i '' 's/PROVISIONING_PROFILE_SPECIFIER = .*/PROVISIONING_PROFILE_SPECIFIER = "";/g' CameraAccess.xcodeproj/project.pbxproj
 
-    - name: Archive and Export App Bundle
+    - name: Build Project for Generic Device
       run: |
         cd samples/CameraAccess
-        xcodebuild archive \
+        xcodebuild clean build \
           -project CameraAccess.xcodeproj \
           -scheme CameraAccess \
-          -archivePath ./build/VisionClaw.xcarchive \
           -sdk iphoneos \
+          -configuration Release \
           CODE_SIGNING_ALLOWED=NO \
           CODE_SIGNING_REQUIRED=NO \
           CODE_SIGN_IDENTITY="" \
-          PROVISIONING_PROFILE_SPECIFIER=""
+          PROVISIONING_PROFILE_SPECIFIER="" \
+          CONFIGURATION_BUILD_DIR=build
 
-    - name: Package App Bundle into IPA
+    - name: Package into IPA Archive
       run: |
-        cd samples/CameraAccess
-        mkdir -p build/Payload
-        cp -r build/VisionClaw.xcarchive/Products/Applications/CameraAccess.app build/Payload/
-        cd build
+        cd samples/CameraAccess/build
+        mkdir Payload
+        cp -r CameraAccess.app Payload/
         zip -r VisionClaw.ipa Payload
 
     - name: Upload Finished IPA
