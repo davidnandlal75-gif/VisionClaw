@@ -14,6 +14,10 @@ workflows:
         script: |
           cd samples/CameraAccess/CameraAccess
           echo 'enum Secrets { static let geminiAPIKey = "${{ secrets.GEMINI_API_KEY }}"; static let openaiAPIKey = ""; static let openClawHost = ""; static let openClawPort = 18789; static let openClawHookToken = ""; static let openClawGatewayToken = ""; static let openClawRelayURL = "" }' > Secrets.swift
+      - name: Fetch Package Dependencies
+        script: |
+          cd samples/CameraAccess
+          xcodebuild -resolvePackageDependencies -project CameraAccess.xcodeproj -scheme CameraAccess
       - name: Build iOS App Bundle
         script: |
           xcodebuild build \
