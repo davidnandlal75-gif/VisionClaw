@@ -1,0 +1,34 @@
+workflows:
+  ios-build:
+    name: Build VisionClaw Upgraded iOS App
+    max_build_duration: 30
+    instance_type: mac_mini_m1
+    environment:
+      vars:
+        XCODE_PROJECT: "samples/CameraAccess/CameraAccess.xcodeproj"
+        XCODE_SCHEME: "CameraAccess"
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: Inject Secrets Configuration
+        script: |
+          cd samples/CameraAccess/CameraAccess
+          echo 'enum Secrets { static let geminiAPIKey = "${{ secrets.GEMINI_API_KEY }}"; static let openaiAPIKey = ""; static let openClawHost = ""; static let openClawPort = 18789; static let openClawHookToken = ""; static let openClawGatewayToken = ""; static let openClawRelayURL = "" }' > Secrets.swift
+      - name: Build iOS App Bundle
+        script: |
+          xcodebuild build \
+            -project "$XCODE_PROJECT" \
+            -scheme "$XCODE_SCHEME" \
+            -configuration Release \
+            -sdk iphoneos \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            OBJROOT=$PWD/build \
+            SYMROOT=$PWD/build
+      - name: Package to IPA
+        script: |
+          mkdir -p build/Payload
+          cp -R build/Release-iphoneos/$XCODE_SCHEME.app build/Payload/
+          cd build && zip -r CameraAccess.ipa Payload
+    artifacts:
+      - build/*.ipa
